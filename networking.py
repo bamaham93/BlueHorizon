@@ -10,6 +10,8 @@ class ClientEnvelope:
 
 
 class ConnectionManager:
+    HIDDEN_FIELDS = ("raw_roll", "hidden_modifiers", "probability", "confidence_percent")
+
     def __init__(self) -> None:
         self.active_connections: dict[str, Any] = {}
         self.role_assignments: dict[str, str] = {}
@@ -79,7 +81,7 @@ class ConnectionManager:
             return dict(message)
 
         sanitized = dict(message)
-        for forbidden in ("raw_roll", "hidden_modifiers", "probability", "confidence_percent"):
+        for forbidden in self.HIDDEN_FIELDS:
             sanitized.pop(forbidden, None)
         return sanitized
 

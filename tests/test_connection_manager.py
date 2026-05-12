@@ -59,7 +59,7 @@ class ConnectionManagerTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(dm.messages[-1]["type"], "report")
         self.assertEqual(sonar.messages[-1]["type"], "report")
-        self.assertNotEqual(captain.messages[-1]["type"], "report")
+        self.assertFalse(any(msg.get("type") == "report" for msg in captain.messages))
 
     async def test_subsystem_visibility_enforcement(self) -> None:
         manager = ConnectionManager()
@@ -84,7 +84,7 @@ class ConnectionManagerTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(dm.messages[-1]["type"], "engineering_report")
         self.assertEqual(engineer.messages[-1]["type"], "engineering_report")
-        self.assertNotEqual(captain.messages[-1]["type"], "engineering_report")
+        self.assertFalse(any(msg.get("type") == "engineering_report" for msg in captain.messages))
 
     async def test_hidden_roll_fields_stripped_for_non_dm(self) -> None:
         manager = ConnectionManager()
