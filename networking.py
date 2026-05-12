@@ -13,6 +13,7 @@ class ClientEnvelope:
 
 
 class ConnectionManager:
+    DM_ROLE = "dm"
     HIDDEN_FIELDS = ("raw_roll", "hidden_modifiers", "probability", "confidence_percent")
 
     def __init__(self) -> None:
@@ -81,7 +82,7 @@ class ConnectionManager:
             )
 
     def _sanitize_for_role(self, message: dict[str, Any], role: str | None) -> dict[str, Any]:
-        if role == "dm":
+        if role == self.DM_ROLE:
             return dict(message)
 
         sanitized = dict(message)
@@ -99,12 +100,12 @@ class ConnectionManager:
         for client_id in self.active_connections:
             role = self.role_assignments.get(client_id)
             if dm_only:
-                if role == "dm":
+                if role == self.DM_ROLE:
                     clients.append(ClientEnvelope(client_id, role))
                 continue
 
             if client_ids is not None:
-                if client_id in client_ids or role == "dm":
+                if client_id in client_ids or role == self.DM_ROLE:
                     clients.append(ClientEnvelope(client_id, role))
                 continue
 
@@ -112,7 +113,7 @@ class ConnectionManager:
                 clients.append(ClientEnvelope(client_id, role))
                 continue
 
-            if role in visible_roles or role == "dm":
+            if role in visible_roles or role == self.DM_ROLE:
                 clients.append(ClientEnvelope(client_id, role))
 
         return clients
