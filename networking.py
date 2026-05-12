@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import logging
 from dataclasses import dataclass
 from typing import Any
@@ -83,9 +84,9 @@ class ConnectionManager:
 
     def _sanitize_for_role(self, message: dict[str, Any], role: str | None) -> dict[str, Any]:
         if role == self.DM_ROLE:
-            return dict(message)
+            return copy.deepcopy(message)
 
-        sanitized = dict(message)
+        sanitized = copy.deepcopy(message)
         for forbidden in self.HIDDEN_FIELDS:
             sanitized.pop(forbidden, None)
         return sanitized
