@@ -162,7 +162,13 @@ UI_HTML = """
     });
 
     document.getElementById("dmPushBtn").addEventListener("click", async () => {
-      const payload = JSON.parse(document.getElementById("dmPayload").value);
+      let payload;
+      try {
+        payload = JSON.parse(document.getElementById("dmPayload").value);
+      } catch (error) {
+        log("Invalid DM payload JSON", String(error));
+        return;
+      }
       await postJson("/dm/push", {
         payload,
         visible_to_roles: parseList(document.getElementById("visibleRoles").value),
@@ -173,7 +179,13 @@ UI_HTML = """
     });
 
     document.getElementById("subsystemBtn").addEventListener("click", async () => {
-      const payload = JSON.parse(document.getElementById("subsystemPayload").value);
+      let payload;
+      try {
+        payload = JSON.parse(document.getElementById("subsystemPayload").value);
+      } catch (error) {
+        log("Invalid subsystem payload JSON", String(error));
+        return;
+      }
       await postJson("/dm/subsystem-update", {
         owner_role: document.getElementById("ownerRole").value.trim(),
         payload,
