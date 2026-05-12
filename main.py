@@ -2,6 +2,7 @@ import logging
 from typing import Any
 
 from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from networking import ConnectionManager
@@ -9,6 +10,191 @@ from networking import ConnectionManager
 app = FastAPI(title="BlueHorizon Networking MVP")
 manager = ConnectionManager()
 logger = logging.getLogger(__name__)
+
+UI_HTML = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BlueHorizon MVP UI</title>
+  <style>
+    body { font-family: sans-serif; margin: 1.5rem; max-width: 1000px; }
+    h1 { margin-top: 0; }
+    section { border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+    label { display: block; margin: 0.4rem 0; }
+    input, textarea, button { font: inherit; }
+    textarea { width: 100%; min-height: 110px; }
+    .row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .row > * { flex: 1 1 250px; }
+    #log { background: #111; color: #d6ffd6; padding: 0.8rem; border-radius: 6px; min-height: 180px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>BlueHorizon Networking MVP</h1>
+
+  <section>
+    <h2>WebSocket Client</h2>
+    <div class="row">
+      <label>Client ID <input id="clientId" value="alpha" /></label>
+      <label>Display Name <input id="displayName" value="Alpha" /></label>
+    </div>
+    <button id="connectBtn">Connect</button>
+    <button id="disconnectBtn">Disconnect</button>
+    <p id="wsStatus">Status: Disconnected</p>
+  </section>
+
+  <section>
+    <h2>State and Role Assignment</h2>
+    <button id="refreshStateBtn">Refresh /state</button>
+    <div class="row">
+      <label>Assign Client ID <input id="assignClientId" value="alpha" /></label>
+      <label>Assign Role <input id="assignRole" value="sonar" /></label>
+    </div>
+    <button id="assignRoleBtn">POST /dm/assign-role</button>
+  </section>
+
+  <section>
+    <h2>DM Push</h2>
+    <label>Payload JSON
+      <textarea id="dmPayload">{"type":"report","body":"Possible contact.","visible_to_roles":["sonar"],"raw_roll":14,"confidence_percent":37}</textarea>
+    </label>
+    <div class="row">
+      <label>Visible Roles (comma-separated) <input id="visibleRoles" value="sonar" /></label>
+      <label>Client IDs (comma-separated) <input id="clientIds" value="" /></label>
+      <label>Delay Seconds <input id="delaySeconds" type="number" min="0" step="0.1" value="0" /></label>
+    </div>
+    <label><input id="dmOnly" type="checkbox" /> DM only</label>
+    <button id="dmPushBtn">POST /dm/push</button>
+  </section>
+
+  <section>
+    <h2>Subsystem Update</h2>
+    <div class="row">
+      <label>Owner Role <input id="ownerRole" value="engineering" /></label>
+    </div>
+    <label>Payload JSON
+      <textarea id="subsystemPayload">{"type":"engineering_report","subsystem":"quieting","integrity":58,"status":"DEGRADED"}</textarea>
+    </label>
+    <button id="subsystemBtn">POST /dm/subsystem-update</button>
+  </section>
+
+  <section>
+    <h2>Log</h2>
+    <div id="log"></div>
+  </section>
+
+  <script>
+    let ws = null;
+    const logEl = document.getElementById("log");
+    const wsStatus = document.getElementById("wsStatus");
+
+    function log(message, data) {
+      const line = `[${new Date().toISOString()}] ${message}`;
+      logEl.textContent += data === undefined ? `${line}\\n` : `${line} ${JSON.stringify(data)}\\n`;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function parseList(value) {
+      const items = value.split(",").map(v => v.trim()).filter(Boolean);
+      return items.length ? items : null;
+    }
+
+    async function postJson(url, payload) {
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        throw new Error(JSON.stringify(data));
+      }
+      log(`POST ${url} ok`, data);
+      return data;
+    }
+
+    document.getElementById("connectBtn").addEventListener("click", () => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        log("WebSocket already connected");
+        return;
+      }
+      const clientId = encodeURIComponent(document.getElementById("clientId").value.trim());
+      const displayName = encodeURIComponent(document.getElementById("displayName").value.trim() || "Unknown");
+      const protocol = location.protocol === "https:" ? "wss" : "ws";
+      ws = new WebSocket(`${protocol}://${location.host}/ws/${clientId}?display_name=${displayName}`);
+
+      ws.onopen = () => {
+        wsStatus.textContent = "Status: Connected";
+        log("WebSocket connected");
+      };
+      ws.onmessage = (event) => {
+        try {
+          log("WS recv", JSON.parse(event.data));
+        } catch {
+          log("WS recv raw", event.data);
+        }
+      };
+      ws.onclose = () => {
+        wsStatus.textContent = "Status: Disconnected";
+        log("WebSocket disconnected");
+      };
+      ws.onerror = () => log("WebSocket error");
+    });
+
+    document.getElementById("disconnectBtn").addEventListener("click", () => {
+      if (!ws) return;
+      ws.close();
+      ws = null;
+    });
+
+    document.getElementById("refreshStateBtn").addEventListener("click", async () => {
+      const resp = await fetch("/state");
+      const data = await resp.json();
+      log("GET /state", data);
+    });
+
+    document.getElementById("assignRoleBtn").addEventListener("click", async () => {
+      await postJson("/dm/assign-role", {
+        client_id: document.getElementById("assignClientId").value.trim(),
+        role: document.getElementById("assignRole").value.trim(),
+      });
+    });
+
+    document.getElementById("dmPushBtn").addEventListener("click", async () => {
+      let payload;
+      try {
+        payload = JSON.parse(document.getElementById("dmPayload").value);
+      } catch (error) {
+        log("Invalid DM payload JSON", String(error));
+        return;
+      }
+      await postJson("/dm/push", {
+        payload,
+        visible_to_roles: parseList(document.getElementById("visibleRoles").value),
+        dm_only: document.getElementById("dmOnly").checked,
+        client_ids: parseList(document.getElementById("clientIds").value),
+        delay_seconds: Number(document.getElementById("delaySeconds").value || 0),
+      });
+    });
+
+    document.getElementById("subsystemBtn").addEventListener("click", async () => {
+      let payload;
+      try {
+        payload = JSON.parse(document.getElementById("subsystemPayload").value);
+      } catch (error) {
+        log("Invalid subsystem payload JSON", String(error));
+        return;
+      }
+      await postJson("/dm/subsystem-update", {
+        owner_role: document.getElementById("ownerRole").value.trim(),
+        payload,
+      });
+    });
+  </script>
+</body>
+</html>
+"""
 
 
 class RoleAssignmentRequest(BaseModel):
@@ -32,6 +218,11 @@ class SubsystemRouteRequest(BaseModel):
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/", response_class=HTMLResponse)
+async def ui() -> HTMLResponse:
+    return HTMLResponse(UI_HTML)
 
 
 @app.get("/state")
