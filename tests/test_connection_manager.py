@@ -115,6 +115,8 @@ class ConnectionManagerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("raw_roll", dm.messages[-1])
         self.assertNotIn("raw_roll", sonar.messages[-1])
         self.assertNotIn("probability", sonar.messages[-1])
+        self.assertNotIn("hidden_modifiers", sonar.messages[-1])
+        self.assertNotIn("confidence_percent", sonar.messages[-1])
 
 
 if __name__ == "__main__":

@@ -102,6 +102,8 @@ async def websocket_endpoint(
                 owner_role = message.get("owner_role")
                 if owner_role:
                     await manager.route_subsystem_update(owner_role=owner_role, message=message)
+                else:
+                    logger.warning("Ignoring subsystem_update from %s without owner_role", client_id)
             else:
                 await manager.route_message({"type": "dm_event", "payload": message}, dm_only=True)
     except WebSocketDisconnect:
