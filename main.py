@@ -81,11 +81,15 @@ async def websocket_endpoint(
                 )
             elif message_type == "dm_directive":
                 delay_value = message.get("delay_seconds")
+                try:
+                    delay_seconds = float(delay_value) if delay_value is not None else 0
+                except (TypeError, ValueError):
+                    delay_seconds = 0
                 await manager.route_message(
                     message=message,
                     client_ids=message.get("client_ids"),
                     visible_roles=message.get("visible_to_roles"),
-                    delay_seconds=float(delay_value) if delay_value is not None else 0,
+                    delay_seconds=delay_seconds,
                 )
             elif message_type == "subsystem_update":
                 owner_role = message.get("owner_role")

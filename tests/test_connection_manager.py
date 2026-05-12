@@ -20,6 +20,9 @@ class FakeWebSocket:
 
 
 class ConnectionManagerTests(unittest.IsolatedAsyncioTestCase):
+    def assert_message_type_not_received(self, websocket: FakeWebSocket, message_type: str) -> None:
+        self.assertFalse(any(msg.get("type") == message_type for msg in websocket.messages))
+
     async def test_connect_and_reconnect_keep_role_assignment(self) -> None:
         manager = ConnectionManager()
         ws1 = FakeWebSocket()
@@ -59,7 +62,7 @@ class ConnectionManagerTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(dm.messages[-1]["type"], "report")
         self.assertEqual(sonar.messages[-1]["type"], "report")
-        self.assertFalse(any(msg.get("type") == "report" for msg in captain.messages))
+        self.assert_message_type_not_received(captain, "report")
 
     async def test_subsystem_visibility_enforcement(self) -> None:
         manager = ConnectionManager()
@@ -84,7 +87,7 @@ class ConnectionManagerTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(dm.messages[-1]["type"], "engineering_report")
         self.assertEqual(engineer.messages[-1]["type"], "engineering_report")
-        self.assertFalse(any(msg.get("type") == "engineering_report" for msg in captain.messages))
+        self.assert_message_type_not_received(captain, "engineering_report")
 
     async def test_hidden_roll_fields_stripped_for_non_dm(self) -> None:
         manager = ConnectionManager()

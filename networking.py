@@ -1,6 +1,9 @@
 import asyncio
+import logging
 from dataclasses import dataclass
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -160,5 +163,5 @@ class ConnectionManager:
         self._background_tasks.discard(task)
         try:
             task.result()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Delayed route task failed: %s", exc)
