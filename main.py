@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
 from networking import ConnectionManager
@@ -64,7 +64,9 @@ async def subsystem_push(request: SubsystemRouteRequest) -> dict[str, str]:
 
 
 @app.websocket("/ws/{client_id}")
-async def websocket_endpoint(websocket: WebSocket, client_id: str, display_name: str = "Unknown") -> None:
+async def websocket_endpoint(
+    websocket: WebSocket, client_id: str, display_name: str = Query(default="Unknown")
+) -> None:
     await manager.connect(client_id=client_id, websocket=websocket, display_name=display_name)
     await manager.route_message({"type": "dm_roster_update", **manager.get_state()}, dm_only=True)
 
@@ -78,7 +80,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str, display_name:
                     visible_roles=message.get("visible_to_roles"),
                 )
             elif message_type == "dm_directive":
-                delay_value = message.get("delay_seconds", 0)
+                delay_value = message.get("delay_seconds")
                 await manager.route_message(
                     message=message,
                     client_ids=message.get("client_ids"),

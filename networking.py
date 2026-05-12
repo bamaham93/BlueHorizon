@@ -17,6 +17,7 @@ class ConnectionManager:
         self.role_assignments: dict[str, str] = {}
         self.display_names: dict[str, str] = {}
         self.waiting_room: set[str] = set()
+        self._background_tasks: set[asyncio.Task[Any]] = set()
 
     async def connect(self, client_id: str, websocket: Any, display_name: str) -> None:
         await websocket.accept()
@@ -122,9 +123,11 @@ class ConnectionManager:
         delay_seconds: float = 0,
     ) -> None:
         if delay_seconds > 0:
-            asyncio.create_task(
+            task = asyncio.create_task(
                 self._delayed_route(message, visible_roles, dm_only, client_ids, delay_seconds)
             )
+            self._background_tasks.add(task)
+            task.add_done_callback(self._on_background_task_done)
             return
 
         for envelope in self._target_clients(visible_roles, dm_only, client_ids):
@@ -152,3 +155,10 @@ class ConnectionManager:
 
     async def route_subsystem_update(self, owner_role: str, message: dict[str, Any]) -> None:
         await self.route_message(message=message, visible_roles=[owner_role])
+
+    def _on_background_task_done(self, task: asyncio.Task[Any]) -> None:
+        self._background_tasks.discard(task)
+        try:
+            task.result()
+        except Exception:
+            pass
