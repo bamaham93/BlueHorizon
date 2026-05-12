@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
@@ -7,6 +8,7 @@ from networking import ConnectionManager
 
 app = FastAPI(title="BlueHorizon Networking MVP")
 manager = ConnectionManager()
+logger = logging.getLogger(__name__)
 
 
 class RoleAssignmentRequest(BaseModel):
@@ -84,6 +86,7 @@ async def websocket_endpoint(
                 try:
                     delay_seconds = float(delay_value) if delay_value is not None else 0
                 except (TypeError, ValueError):
+                    logger.warning("Invalid delay_seconds value from %s: %r", client_id, delay_value)
                     delay_seconds = 0
                 await manager.route_message(
                     message=message,

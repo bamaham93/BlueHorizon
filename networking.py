@@ -130,6 +130,9 @@ class ConnectionManager:
             task = asyncio.create_task(
                 self._delayed_route(message, visible_roles, dm_only, client_ids, delay_seconds)
             )
+            task.set_name(
+                f"type={message.get('type')} roles={visible_roles} clients={client_ids} dm_only={dm_only}"
+            )
             self._background_tasks.add(task)
             task.add_done_callback(self._on_background_task_done)
             return
@@ -165,4 +168,4 @@ class ConnectionManager:
         try:
             task.result()
         except Exception as exc:
-            logger.warning("Delayed route task failed: %s", exc)
+            logger.warning("Delayed route task failed (%s): %s", task.get_name(), exc)
